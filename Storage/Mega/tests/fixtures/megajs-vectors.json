@@ -1,0 +1,19 @@
+{
+  "source": "Generated with megajs 1.3.10 internals (prepareKey, AES.stringhash, megaEncrypt, cryptoRsaDecrypt)",
+  "password": "correct horse battery staple!",
+  "email": "someone@example.com",
+  "prepareKey": "1b15c72ba179bc214cf223414cbe106d",
+  "stringHash": "TCznK4YxuOU",
+  "upload": {
+    "size": 1500000,
+    "pattern": "(i * 7 + 3) % 251",
+    "key24": "000102030405060708090a0b0c0d0e0f1011121314151617",
+    "cipherSha256": "31826e1661fc0107fef5767ed5f8f691d80ea44e361c04a6325b06f5a1aa887c",
+    "fileKey": "10101010101010107ff2ce02c136f918101112131415161777fbc409cd3bf717"
+  },
+  "rsa": {
+    "privk": "BADwjK3yC/yhttymlICc1qrNgQxCQ6kXVK91zUHFFxVqCCIF/RsUQsY6PbqfVTnSq9rNtOebx87+AOqfLJY/kFIGynT6YYctEB47HsNsFWi86nB3orIFiGO/0Qw/dmfHakjH7Pu7LcrbU+iWk+Dsj703mOH7yEC54yp6iPYhcFMSFQQA/r5IlIrRg2pycW16Os/6UIA25Jwrxc2CedM31SX57mChEZpUFXYT+QDRoem7/tW7+FijTecMToGhoX5YIPnfevJyPtE6CM1EIYhKqsOcbNwrCs1b3Fejh8KJt/xZK9lLNco4ObUNY2WokEWsgdurX4GeFEn190sSEba6Hkr+gl0H/jcyP/7/cF7RtbeNbWOSeRxyDl5Xuqppo8K4YbTH+CsEaJUFjfDNBMYaa8GJPgDL+YeS75P2fcRm0C1QeJd72LnRC1xUmXxtVYN8QlzaJyNjoR4gfCVrW3Wgr+N4dFlV7iaYlety+xjKKepOYXhbboVccsh0jFiaVMn0fISbUkMnJ7F/qaZLkZuhBQCrur3nFbCaCKDvObDqKzM3SmG5YjFZPP0bTwCpIXgRG7VPhADteLtdRsElJHDS4kmCBn+mFq5UtIK7p44Uzts51UUJxFX1Of+GYxg3laa+azCnYjg7Zz8ndT91p2upSEizSpkULeSnY5VZORofOUgDjIt4c00D/itczgrhWxAyfoQhnjeXI+Y5/ffNMWbm1b/u4EZtyikb2qdQ/Z4dj/SI6DkUbgDRAuJ5cvNBcoAhlYMP6c8cQgy7s++41leCcuLAIAhigSp70SeQhv+09Fm3gUyjsVyGg0qlia/OL9Nl1LMHVk0iaTDrGLAqxCoyLI2uIvpvTkjp",
+    "ciphertext": "CADn594uiJlskwpyfXjjmw5V6St+GQADtFyHi8iXH6noabxFbWvlufvHnUeZrO34LW15OWUKvTqolg+IuSk6FcrImP5KIELgAbJBewDRSMpvxHJ0zA3g4/d7TVEiShOOUcfPr5+paAH2aPsPG9CQgne8QTvKn5m591hzX0Od4hWTJBrznme/7zizBBBTg4z6Jpb4QOpqEzB/pBg8r2zI6yowZTJZchTftJAU6f4g0DZMvoHF1+a1YQXqm73OZtyfQognfIv0jy2gYiHWbOuCtRfhE9ORcATTIAUNMN4luepRGuo/bvr03NRaab52dJ6lvNH560g3YiMcSE+7tfB1J769",
+    "plaintext": "35c738d3519a7c219474d83d1df1b7ef8a7cf35daea44c5268b342368ec8d27d38550159832ff1d8efb0a5bfed97e1bdee4663cd834fbbf512c0031efb52d9fd80514eb1074d6422e75df997b970b746217b7a25dc982526a45b75b52222abb5be8a14843e72581470f2b5083eda9ea52235bbdc52f58b610305bdcf70a112632490a37a98f8a3b6753b3211d6eee7b861d0fe3ae5f45d8362008a62a4ec14c1d7b0b85a9962bfe874b21da4f2f155f3fbb977f5c633f5298e602156a1702950a5124c819a8769d6"
+  }
+}

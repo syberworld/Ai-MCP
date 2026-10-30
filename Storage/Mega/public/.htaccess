@@ -1,0 +1,11 @@
+Require all granted
+
+# Pass the Authorization header to PHP (needed with CGI/FastCGI).
+CGIPassAuth On
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+DirectoryIndex index.php

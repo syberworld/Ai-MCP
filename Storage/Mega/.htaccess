@@ -1,0 +1,3 @@
+# Deny direct web access to everything except public/ (for hosts where the document root
+# cannot be pointed at public/).
+Require all denied

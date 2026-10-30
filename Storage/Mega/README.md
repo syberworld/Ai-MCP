@@ -1,111 +1,142 @@
-# MEGA MCP Server
+# MEGA MCP Server (PHP)
 
-Server MCP che consente ai modelli di operare su un account [MEGA](https://mega.io) tramite le API di MEGA
-(client crittografato end-to-end basato su [`megajs`](https://mega.js.org/)). Tutta la cifratura/decifratura
-avviene in locale: le credenziali e le chiavi non lasciano la macchina che esegue il server.
+Server [MCP](https://modelcontextprotocol.io) in PHP che consente ai modelli di operare su un account
+[MEGA](https://mega.io) tramite le API di MEGA. È pensato per essere ospitato su un server web PHP e
+raggiunto via HTTP (trasporto *Streamable HTTP*); l'accesso è ristretto tramite token segreti.
+
+La crittografia del client MEGA (login, chiavi, attributi, upload/download cifrati AES-CTR con MAC) è
+implementata in [`src/Mega`](src/Mega): file e chiavi vengono cifrati/decifrati sul server che ospita l'MCP,
+MEGA riceve solo dati cifrati.
+
+## Requisiti
+
+- PHP 8.1+ con estensioni `curl`, `openssl`, `mbstring`, `json`
+- [Composer](https://getcomposer.org) (dipendenza: `phpseclib/phpseclib` per l'RSA del login)
+- Un server web (Apache, Nginx + PHP-FPM, …) con HTTPS
 
 ## Installazione
 
 ```bash
 cd Storage/Mega
-npm install
-npm run build
+composer install --no-dev
+cp config/config.example.php config/config.php
+php bin/generate-token.php   # token di accesso MCP
+php bin/generate-token.php   # session_secret
 ```
 
-Richiede Node.js 18 o superiore.
+Compila `config/config.php`:
 
-## Configurazione
+```php
+'auth_tokens' => ['<token generato>'],
+'mega' => [
+    'email' => 'tu@example.com',
+    'password' => '...',
+    'storage_dir' => __DIR__ . '/../var',   // scrivibile, NON accessibile dal web
+    'session_secret' => '<secondo token>',
+],
+```
 
-Variabili d'ambiente:
+In alternativa si possono usare variabili d'ambiente (hanno la precedenza sul file):
+`MCP_AUTH_TOKENS` (separati da virgola), `MEGA_EMAIL`, `MEGA_PASSWORD`, `MEGA_SESSION_SECRET`, `MEGA_STORAGE_DIR`.
 
-| Variabile | Obbligatoria | Descrizione |
-|-----------|--------------|-------------|
-| `MEGA_EMAIL` | sì* | Email dell'account MEGA |
-| `MEGA_PASSWORD` | sì* | Password dell'account |
-| `MEGA_2FA_CODE` | no | Codice 2FA (se attivo). Poiché scade, è preferibile passarlo al tool `mega_login` |
-| `MEGA_LOCAL_ROOT` | no | Se impostata, upload/download locali sono confinati in questa cartella |
+### Web server
 
-\* Non servono per i tool sui link pubblici (`mega_public_*`) o se si usa `mega_login` con credenziali esplicite.
+Il document root deve puntare a **`public/`**: l'endpoint MCP è `public/index.php`.
 
-### Claude Desktop / Claude Code
+- **Apache**: `public/.htaccess` inoltra l'header `Authorization` a PHP. Se non puoi cambiare il
+  document root, il `.htaccess` nella cartella `Storage/Mega` blocca l'accesso a tutto tranne `public/`
+  (endpoint: `https://tuo-dominio/.../Storage/Mega/public/`).
+- **Nginx**:
+
+  ```nginx
+  location /mega-mcp/ {
+      alias /percorso/Ai-MCP/Storage/Mega/public/;
+      fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+      include fastcgi_params;
+      fastcgi_param SCRIPT_FILENAME /percorso/Ai-MCP/Storage/Mega/public/index.php;
+      fastcgi_param HTTP_AUTHORIZATION $http_authorization;
+  }
+  ```
+
+Usa sempre HTTPS: il token viaggia in ogni richiesta.
+
+## Accesso ristretto
+
+- Ogni richiesta deve avere l'header `Authorization: Bearer <token>`; senza token valido la risposta è `401`.
+  I token sono confrontati in tempo costante e devono essere lunghi almeno 32 caratteri.
+- Se non è configurato alcun token il server non si avvia (risponde `500`) invece di restare aperto.
+- Si possono configurare più token (uno per client) e revocarne uno togliendolo dalla lista.
+- `allow_query_token` (disattivato di default) permette `?token=...` nell'URL per i client che non
+  possono inviare header: è meno sicuro perché gli URL finiscono nei log.
+- `allowed_origins` limita le richieste provenienti da browser a specifiche origini.
+- Le credenziali MEGA restano sul server; la sessione MEGA viene salvata in `storage_dir` cifrata
+  con AES-256-GCM (chiave derivata da `session_secret`), così il login non si ripete a ogni richiesta.
+- `mega_upload_from_url` rifiuta indirizzi privati/riservati (anche dopo redirect) per evitare SSRF.
+
+## Collegare un client
+
+Claude Code:
+
+```bash
+claude mcp add --transport http mega https://tuo-dominio/mega-mcp/ --header "Authorization: Bearer <token>"
+```
+
+Configurazione JSON generica (client che supportano server HTTP remoti con header):
 
 ```json
 {
   "mcpServers": {
     "mega": {
-      "command": "node",
-      "args": ["/percorso/assoluto/Ai-MCP/Storage/Mega/dist/index.js"],
-      "env": {
-        "MEGA_EMAIL": "you@example.com",
-        "MEGA_PASSWORD": "your-password"
-      }
+      "type": "http",
+      "url": "https://tuo-dominio/mega-mcp/",
+      "headers": { "Authorization": "Bearer <token>" }
     }
   }
 }
 ```
 
-Con Claude Code:
+### Account con autenticazione a due fattori
 
-```bash
-claude mcp add mega -e MEGA_EMAIL=you@example.com -e MEGA_PASSWORD=your-password -- node /percorso/assoluto/Ai-MCP/Storage/Mega/dist/index.js
-```
+Il server non può generare il codice 2FA. Al primo utilizzo chiedi al modello di eseguire
+`mega_login` con `twoFactorCode` (il codice attuale dell'app di autenticazione): la sessione viene
+salvata e riutilizzata finché resta valida su MEGA.
 
 ## Percorsi remoti
 
 | Forma | Significato |
 |-------|-------------|
-| `/` , `/Documenti/file.txt` | Cloud Drive (radice e percorsi) |
+| `/` , `/Documenti/file.txt` | Cloud Drive |
 | `trash:/...` | Cestino (Rubbish Bin) |
 | `inbox:/...` | Inbox |
 | `shares:/<NomeCondivisione>/...` | Cartelle condivise da altri utenti |
-| `id:<handle>` | Nodo indicato tramite il suo handle MEGA (8 caratteri) |
+| `id:<handle>` | Nodo indicato tramite il suo handle MEGA |
 
-## Tool disponibili
+MEGA permette nomi duplicati nella stessa cartella: in quel caso il percorso indica il primo; usa `id:<handle>` per essere precisi.
 
-**Account e sessione**
-- `mega_login` – login / cambio account / codice 2FA (il login è altrimenti automatico)
-- `mega_logout` – chiude la sessione
-- `mega_account_info` – tipo account, spazio usato/totale, quota di trasferimento
-- `mega_reload` – ricarica l'albero dei file dal server
+## Tool
 
-**Navigazione**
-- `mega_list` – contenuto di una cartella (anche ricorsivo)
-- `mega_get_info` – metadati di file/cartella
-- `mega_search` – ricerca per nome (sottostringa o regex, filtro file/cartelle)
-- `mega_list_shares` – condivisioni in ingresso e nodi esportati con link pubblico
+| Gruppo | Tool |
+|--------|------|
+| Account | `mega_login`, `mega_logout`, `mega_account_info`, `mega_reload` |
+| Navigazione | `mega_list`, `mega_get_info`, `mega_search`, `mega_list_shares` |
+| Modifica | `mega_mkdir`, `mega_rename`, `mega_move`, `mega_copy`, `mega_delete`, `mega_restore`, `mega_empty_trash`, `mega_set_label`, `mega_set_favorite` |
+| Contenuti | `mega_read_file`, `mega_write_file`, `mega_upload_from_url` |
+| Condivisione | `mega_create_link`, `mega_remove_link` |
+| Link pubblici | `mega_public_info`, `mega_public_read`, `mega_import_link` |
+| Avanzato | `mega_api_request` (comando raw alle API MEGA con la sessione corrente) |
 
-**Modifica**
-- `mega_mkdir` – crea cartelle (anche intermedie)
-- `mega_rename` – rinomina
-- `mega_move` – sposta (anche per ripristinare dal cestino)
-- `mega_copy` – copia lato server
-- `mega_delete` – sposta nel cestino o elimina definitivamente
-- `mega_empty_trash` – svuota il cestino
-- `mega_set_label` – etichetta colore
-- `mega_set_favorite` – preferiti
+Note:
+- `mega_delete` sposta nel cestino ricordando la cartella d'origine, così `mega_restore` può riportarlo lì.
+- `mega_write_file` con `overwrite=true` carica la nuova versione e sposta la vecchia nel cestino.
+- I limiti di lettura/upload sono in `limits` nel file di configurazione.
+- La condivisione di cartelle con specifici contatti MEGA non ha un tool dedicato: si può fare con `mega_api_request`.
 
-**Trasferimenti**
-- `mega_upload` – carica file o intere cartelle locali
-- `mega_write_file` – crea un file da contenuto testo/base64
-- `mega_download` – scarica file o cartelle in locale
-- `mega_read_file` – legge il contenuto (o un intervallo di byte) di un file
+## Test
 
-**Condivisione**
-- `mega_create_link` – crea link pubblico (con o senza chiave nell'URL)
-- `mega_remove_link` – rimuove il link pubblico
-- `mega_set_thumbnail` – imposta miniatura/anteprima di un file
+```bash
+php tests/run.php
+```
 
-**Link pubblici** (non richiedono login)
-- `mega_public_info` – metadati e contenuto di un link file/cartella
-- `mega_public_read` – legge un file da link pubblico
-- `mega_public_download` – scarica un link pubblico in locale
-- `mega_import_link` – importa nel proprio account un link pubblico (file o cartella)
-
-**Avanzato**
-- `mega_api_request` – invia un comando raw alle API MEGA (`{"a": "..."}`) con la sessione corrente, per operazioni non coperte dagli altri tool
-
-## Note
-
-- MEGA non supporta la modifica in-place: `mega_write_file` con `overwrite=true` carica la nuova versione e sposta la vecchia nel cestino.
-- I tool distruttivi (`mega_delete`, `mega_empty_trash`, `mega_api_request`) sono marcati con `destructiveHint`.
-- La condivisione di cartelle con specifici contatti MEGA non è supportata dalla libreria `megajs`; è raggiungibile solo tramite `mega_api_request`.
+La suite verifica la crittografia con vettori generati dalla libreria `megajs` e prova l'endpoint MCP
+end-to-end (autenticazione, tutti i principali tool) contro un finto server API MEGA locale
+(`tests/mock/router.php`). Non serve un account MEGA, ma di conseguenza non sostituisce una prova sul servizio reale.
